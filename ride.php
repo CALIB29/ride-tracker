@@ -115,7 +115,10 @@ require_once 'includes/header.php';
                 <?php endif; ?>
             </div>
 
-            <h2 class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-4 border-b border-white/5 pb-2">Riders in Range (<span id="participant-count">0</span>)</h2>
+            <div class="flex items-center justify-between mb-4 border-b border-white/5 pb-2">
+                <h2 class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Riders in Range (<span id="participant-count">0</span>)</h2>
+                <button onclick="syncTacticalData()" class="text-[8px] text-indigo-400 font-black uppercase tracking-tighter hover:text-white transition-colors">Sync Crew ↻</button>
+            </div>
             <div id="riders-list" class="space-y-4 max-h-48 overflow-y-auto pr-2 custom-scroll bg-white/5 rounded-3xl p-4 border border-white/5">
                 <!-- Dynamic List -->
             </div>
@@ -284,8 +287,9 @@ require_once 'includes/header.php';
             });
         }
         
-        setInterval(fetchRidersLocations, 6000);
+        setInterval(syncTacticalData, 8000);
     }
+
 
 
     function updateUserLocation(position) {
@@ -446,22 +450,40 @@ require_once 'includes/header.php';
         }
     }
 
-    function fetchRidersLocations() {
+    function syncTacticalData() {
+        if (window.syncing) return;
+        window.syncing = true;
+        
+        // 1. Update MY location
+        if (lastPosition) {
+            const data = { ride_id: rideId, lat: lastPosition[0], lng: lastPosition[1], vehicle: currentVehicle };
+            fetch('api/update_location.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+        }
+
+        // 2. Get EVERYONE ELSE's location
         fetch(`api/get_riders_locations.php?ride_id=${rideId}`)
             .then(res => {
                 const contentType = res.headers.get("content-type");
                 if (contentType && contentType.indexOf("application/json") !== -1) {
                     return res.json();
                 } else {
-                    throw new Error("Server status: busy");
+                    throw new Error("Busy");
                 }
             })
             .then(data => {
                 if (data.status === 'success') {
                     updateRidersOnMap(data.locations || [], data.pathways || {});
                 }
+                window.syncing = false;
             })
-            .catch(err => console.warn("Polling suspended: Server busy."));
+            .catch(err => {
+                console.warn("Sync skipped: DB Busy");
+                window.syncing = false;
+            });
     }
 
     function updateRidersOnMap(riders, pathways) {
