@@ -240,7 +240,16 @@ require_once 'includes/header.php';
         peer.on('error', (err) => {
             console.error("PeerJS Error:", err.type);
             if (err.type === 'peer-unavailable') {
-               console.warn("Target rider is not online or ID is wrong.");
+               console.warn("Target rider is not online.");
+            }
+            if (err.type === 'unavailable-id') {
+                console.warn("ID taken. Retrying with alternate ID...");
+                peer.destroy();
+                setTimeout(() => {
+                    peer = new Peer(peerId + '_' + Math.floor(Math.random()*1000), {
+                        config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }, { 'urls': 'stun:stun1.l.google.com:19302' }] }
+                    });
+                }, 1000);
             }
         });
     }
@@ -503,6 +512,7 @@ require_once 'includes/header.php';
                 const statusDot = document.getElementById('sync-status');
                 if (data.status === 'success') {
                     if (statusDot) statusDot.className = "w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]";
+                    console.log(`Tactical Sync: ${data.locations.length} Riders`);
                     updateRidersOnMap(data.locations || [], data.pathways || {});
                 }
                 window.syncing = false;
