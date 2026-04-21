@@ -1,9 +1,9 @@
 <?php
 // Get environment variables from Render (or use local defaults)
-$host = getenv('DB_HOST') ?: 'localhost';
-$dbname = getenv('DB_NAME') ?: 'ride_tracker';
-$username = getenv('DB_USER') ?: 'root';
-$password = getenv('DB_PASS') ?: '';
+$host = getenv('MYSQL_ADDON_HOST') ?: getenv('DB_HOST') ?: 'localhost';
+$dbname = getenv('MYSQL_ADDON_DB') ?: getenv('DB_NAME') ?: 'ride_tracker';
+$username = getenv('MYSQL_ADDON_USER') ?: getenv('DB_USER') ?: 'root';
+$password = getenv('MYSQL_ADDON_PASSWORD') ?: getenv('DB_PASS') ?: '';
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
