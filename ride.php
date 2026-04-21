@@ -116,7 +116,7 @@ require_once 'includes/header.php';
             </div>
 
             <h2 class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-4 border-b border-white/5 pb-2">Riders in Range (<span id="participant-count">0</span>)</h2>
-            <div id="riders-list" class="space-y-4 max-h-60 overflow-y-auto pr-2 custom-scroll">
+            <div id="riders-list" class="space-y-4 max-h-80 overflow-y-auto pr-2 custom-scroll bg-white/5 rounded-3xl p-4 border border-white/5">
                 <!-- Dynamic List -->
             </div>
 
@@ -659,6 +659,13 @@ require_once 'includes/header.php';
                     if (id <= lastMsgId) return; // Skip duplicates
                     
                     const isMe = m.user_id == userId;
+
+                    // AUTO-WATCH: If someone goes live, try to watch them
+                    if (!isMe && m.message.includes("TACTICAL FEED ACTIVE")) {
+                        console.log("Rider went live. Connecting to tactical feed...");
+                        setTimeout(() => { watchRider(m.user_id); }, 1000); // Small delay to let PeerJS init on their end
+                    }
+                    
                     const div = document.createElement('div');
                     div.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'}`;
                     
