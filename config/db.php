@@ -6,8 +6,13 @@ $username = getenv('MYSQL_ADDON_USER') ?: getenv('DB_USER') ?: 'root';
 $password = getenv('MYSQL_ADDON_PASSWORD') ?: getenv('DB_PASS') ?: '';
 
 try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $options = [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_TIMEOUT => 3, // 3 second timeout
+        PDO::ATTR_PERSISTENT => false
+    ];
+    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password, $options);
 } catch (PDOException $e) {
-    die("Database connection failed: " . $e->getMessage());
+    header('HTTP/1.1 503 Service Unavailable');
+    die("Database Busy");
 }

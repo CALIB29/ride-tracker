@@ -117,7 +117,10 @@ require_once 'includes/header.php';
 
             <div class="flex items-center justify-between mb-4 border-b border-white/5 pb-2">
                 <h2 class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Riders in Range (<span id="participant-count">0</span>)</h2>
-                <button onclick="syncTacticalData()" class="text-[8px] text-indigo-400 font-black uppercase tracking-tighter hover:text-white transition-colors">Sync Crew ↻</button>
+                <div class="flex items-center gap-2">
+                    <span id="sync-status" class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse mr-1" title="Sync Status"></span>
+                    <button onclick="syncTacticalData()" class="text-[8px] text-indigo-400 font-black uppercase tracking-tighter hover:text-white transition-colors">Sync Crew ↻</button>
+                </div>
             </div>
             <div id="riders-list" class="space-y-4 max-h-48 overflow-y-auto pr-2 custom-scroll bg-white/5 rounded-3xl p-4 border border-white/5">
                 <!-- Dynamic List -->
@@ -279,6 +282,13 @@ require_once 'includes/header.php';
             className: '', iconSize: [40, 40], iconAnchor: [20, 40]
         });
         L.marker([destLat, destLng], {icon: destIcon}).addTo(map);
+        
+        // AUTO-JOIN RIDE (Ensure user is in the participants table)
+        fetch('api/join_ride.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ride_id: rideId })
+        }).then(() => syncTacticalData());
 
         if (navigator.geolocation) {
             navigator.geolocation.watchPosition(updateUserLocation, handleError, {
@@ -481,12 +491,16 @@ require_once 'includes/header.php';
                 }
             })
             .then(data => {
+                const statusDot = document.getElementById('sync-status');
                 if (data.status === 'success') {
+                    if (statusDot) statusDot.className = "w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]";
                     updateRidersOnMap(data.locations || [], data.pathways || {});
                 }
                 window.syncing = false;
             })
             .catch(err => {
+                const statusDot = document.getElementById('sync-status');
+                if (statusDot) statusDot.className = "w-2 h-2 bg-amber-500 rounded-full animate-ping shadow-[0_0_8px_#f59e0b]";
                 console.warn("Sync skipped: DB Busy");
                 window.syncing = false;
             });
