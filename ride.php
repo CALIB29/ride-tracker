@@ -10,12 +10,17 @@ if (!isset($_GET['id']) || !isset($_SESSION['user_id'])) {
 $ride_id = $_GET['id'];
 $user_id = $_SESSION['user_id'];
 
-// Get ride details
-$stmt = $pdo->prepare("SELECT r.*, u.username as creator_name FROM rides r 
+// Get ride details and ensure username is in session
+$stmt = $pdo->prepare("SELECT r.*, u.username as creator_name, (SELECT username FROM users WHERE id = ?) as current_username 
+                    FROM rides r 
                     JOIN users u ON r.creator_id = u.id 
                     WHERE r.id = ?");
-$stmt->execute([$ride_id]);
+$stmt->execute([$user_id, $ride_id]);
 $ride = $stmt->fetch();
+
+if ($ride) {
+    $_SESSION['username'] = $ride['current_username'];
+}
 
 if (!$ride) {
     header('Location: dashboard.php');
@@ -42,6 +47,23 @@ require_once 'includes/header.php';
     <!-- Floating Navigation Control -->
     <div id="info-card" class="absolute top-6 left-6 right-6 md:left-10 md:right-auto md:w-96 z-[1000] glass p-8 rounded-[2.5rem] text-white shadow-2xl border border-white/10 transition-all duration-500 overflow-y-auto max-h-[85vh] custom-scroll">
         
+        <div class="mb-6 p-4 bg-white/5 rounded-3xl border border-white/10">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Tactical Network</span>
+                <span class="text-[8px] text-indigo-400 font-black uppercase tracking-widest">Channel #<?php echo $ride_id; ?></span>
+            </div>
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-[10px] font-black uppercase text-white"><?php echo $_SESSION['username']; ?></p>
+                    <p class="text-[7px] text-slate-500 font-bold uppercase tracking-tighter">Operator ID: #<?php echo $_SESSION['user_id']; ?></p>
+                </div>
+                <div class="text-right">
+                    <p id="tactical-count-badge" class="text-xs font-black text-emerald-400">SYNCING...</p>
+                    <p class="text-[7px] text-slate-500 font-bold uppercase tracking-tighter">Riders Online</p>
+                </div>
+            </div>
+        </div>
+
         <div class="flex items-center justify-between mb-8">
             <div class="flex items-center gap-4">
                 <a href="dashboard.php" class="p-3 bg-white/5 rounded-2xl hover:bg-white/10 transition-all border border-white/10">
@@ -530,6 +552,8 @@ require_once 'includes/header.php';
                 const statusDot = document.getElementById('sync-status');
                 if (data.status === 'success') {
                     if (statusDot) statusDot.className = "w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]";
+                    const badge = document.getElementById('tactical-count-badge');
+                    if (badge) badge.innerText = data.locations.length;
                     console.log(`Tactical Sync: ${data.locations.length} Riders`);
                     updateRidersOnMap(data.locations || [], data.pathways || {});
                 }
@@ -543,7 +567,7 @@ require_once 'includes/header.php';
     }
 
     function updateRidersOnMap(riders, pathways) {
-        if (!Array.isArray(riders)) return;
+        if (!Array.isArray(riders) || riders.length === 0) return;
         document.getElementById('participant-count').innerText = riders.length;
         const listEl = document.getElementById('riders-list');
         listEl.innerHTML = '';
