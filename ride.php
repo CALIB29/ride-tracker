@@ -36,7 +36,7 @@ require_once 'includes/header.php';
     <div id="live-map" class="h-full w-full"></div>
     
     <!-- Floating Navigation Control -->
-    <div id="info-card" class="absolute top-6 left-6 right-6 md:left-10 md:right-auto md:w-96 z-[1000] glass p-8 rounded-[2.5rem] text-white shadow-2xl border border-white/10 transition-all duration-500 overflow-hidden max-h-[85vh]">
+    <div id="info-card" class="absolute top-6 left-6 right-6 md:left-10 md:right-auto md:w-96 z-[1000] glass p-8 rounded-[2.5rem] text-white shadow-2xl border border-white/10 transition-all duration-500 overflow-y-auto max-h-[85vh] custom-scroll">
         
         <div class="flex items-center justify-between mb-8">
             <div class="flex items-center gap-4">
@@ -116,7 +116,7 @@ require_once 'includes/header.php';
             </div>
 
             <h2 class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-4 border-b border-white/5 pb-2">Riders in Range (<span id="participant-count">0</span>)</h2>
-            <div id="riders-list" class="space-y-4 max-h-80 overflow-y-auto pr-2 custom-scroll bg-white/5 rounded-3xl p-4 border border-white/5">
+            <div id="riders-list" class="space-y-4 max-h-48 overflow-y-auto pr-2 custom-scroll bg-white/5 rounded-3xl p-4 border border-white/5">
                 <!-- Dynamic List -->
             </div>
 
@@ -784,25 +784,38 @@ require_once 'includes/header.php';
     }
 
     function watchRider(targetUserId) {
+        if (!peer) {
+            console.error("Video system not initialized yet.");
+            return;
+        }
         const targetPeerId = `rt_${rideId}_u${targetUserId}`;
         if (peerConnections[targetPeerId]) return;
         
         console.log("Connecting to Tactical Feed:", targetPeerId);
         
-        // Use an empty stream to initiate the call if we aren't broadcasting
-        const call = peer.call(targetPeerId, localStream || new MediaStream());
-        
-        call.on('stream', (remoteStream) => {
-            console.log("Stream received from:", targetPeerId);
-            showRemoteVideo(targetPeerId, remoteStream);
-        });
+        try {
+            // Use an empty stream to initiate the call if we aren't broadcasting
+            const call = peer.call(targetPeerId, localStream || new MediaStream());
+            
+            if (!call) {
+                console.error("Could not initiate call to:", targetPeerId);
+                return;
+            }
 
-        call.on('error', (err) => {
-            console.warn("Feed connection failed:", err);
-            delete peerConnections[targetPeerId];
-        });
+            call.on('stream', (remoteStream) => {
+                console.log("Stream received from:", targetPeerId);
+                showRemoteVideo(targetPeerId, remoteStream);
+            });
 
-        peerConnections[targetPeerId] = call;
+            call.on('error', (err) => {
+                console.warn("Feed connection failed:", err);
+                delete peerConnections[targetPeerId];
+            });
+
+            peerConnections[targetPeerId] = call;
+        } catch (e) {
+            console.error("Peer call error:", e);
+        }
     }
 
     async function toggleBroadcast() {
