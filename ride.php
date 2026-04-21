@@ -286,7 +286,7 @@ require_once 'includes/header.php';
         // AUTO-JOIN RIDE (Ensure user is in the participants table)
         fetch('api/join_ride.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify({ ride_id: rideId })
         }).then(() => syncTacticalData());
 
