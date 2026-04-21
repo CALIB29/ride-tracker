@@ -293,11 +293,16 @@ require_once 'includes/header.php';
         L.marker([destLat, destLng], {icon: destIcon}).addTo(map);
         
         // AUTO-JOIN RIDE (Ensure user is in the participants table)
-        fetch('api/join_ride.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body: JSON.stringify({ ride_id: rideId })
-        }).then(() => syncTacticalData());
+        window.joinRide = function() {
+            fetch('api/join_ride.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ ride_id: rideId })
+            }).then(res => res.json()).then(data => {
+                if (data.status === 'success') console.log("Joined tactical network.");
+            }).catch(e => console.warn("Join retry needed..."));
+        };
+        window.joinRide();
 
         if (navigator.geolocation) {
             navigator.geolocation.watchPosition(updateUserLocation, handleError, {
@@ -306,14 +311,16 @@ require_once 'includes/header.php';
             });
         }
         
-        // Aggressive first sync
-        let firstSync = setInterval(() => {
-            if (document.getElementById('participant-count').innerText == "0") {
+        // Aggressive first sync / Join check
+        let syncCheck = setInterval(() => {
+            const count = parseInt(document.getElementById('participant-count').innerText);
+            if (count === 0) {
+                window.joinRide();
                 syncTacticalData();
             } else {
-                clearInterval(firstSync);
+                clearInterval(syncCheck);
             }
-        }, 3000);
+        }, 10000);
 
         setInterval(() => {
             if (!window.dbBackoff) syncTacticalData();
