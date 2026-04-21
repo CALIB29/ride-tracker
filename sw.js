@@ -17,7 +17,21 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
+  // Bypass Service Worker for API calls and PeerJS to ensure real-time data
+  if (event.request.url.includes('/api/') || event.request.url.includes('peerjs')) {
+    return; // Let the browser handle normally
+  }
+
   event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
+    fetch(event.request).catch(() => {
+      return caches.match(event.request).then(response => {
+        return response || new Response('Offline content not available', {
+          status: 503,
+          statusText: 'Service Unavailable',
+          headers: new Headers({ 'Content-Type': 'text/plain' })
+        });
+      });
+    })
   );
 });
+
