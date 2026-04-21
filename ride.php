@@ -219,9 +219,14 @@ require_once 'includes/header.php';
         peer = new Peer(peerId);
         
         peer.on('call', (call) => {
-            console.log("Incoming tactical feed from:", call.peer);
-            call.answer(null); 
+            console.log("Incoming tactical request from:", call.peer);
+            
+            // If I am broadcasting, I must answer with my stream so they can see me
+            // If I am NOT broadcasting, I just answer with null (I am just watching them)
+            call.answer(localStream); 
+            
             call.on('stream', (remoteStream) => {
+                console.log("Receiving feed from:", call.peer);
                 showRemoteVideo(call.peer, remoteStream);
             });
         });
