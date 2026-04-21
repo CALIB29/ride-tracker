@@ -287,8 +287,11 @@ require_once 'includes/header.php';
             });
         }
         
-        setInterval(syncTacticalData, 8000);
+        setInterval(() => {
+            if (!window.dbBackoff) syncTacticalData();
+        }, 12000);
     }
+
 
 
 
@@ -471,6 +474,9 @@ require_once 'includes/header.php';
                 if (contentType && contentType.indexOf("application/json") !== -1) {
                     return res.json();
                 } else {
+                    // DB is busy, back off for 15 seconds
+                    window.dbBackoff = true;
+                    setTimeout(() => { window.dbBackoff = false; }, 15000);
                     throw new Error("Busy");
                 }
             })
@@ -830,7 +836,9 @@ require_once 'includes/header.php';
         container.scrollTop = container.scrollHeight;
     }
 
-    setInterval(pollMessages, 8000);
+    setInterval(() => {
+        if (!window.dbBackoff) pollMessages();
+    }, 15000);
 
 
     function handleError(error) { console.error(error); }
