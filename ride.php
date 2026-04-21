@@ -29,6 +29,8 @@ if ($ride['creator_id'] == $user_id && $ride['status'] == 'planned') {
 
 require_once 'includes/header.php';
 ?>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
 
 <div class="fixed inset-0 top-20 z-0">
     <div id="live-map" class="h-full w-full"></div>
@@ -163,10 +165,17 @@ require_once 'includes/header.php';
             <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-white/5">
                 <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Tactical Comms</span>
                 <div class="flex items-center gap-2">
+                    <button id="broadcast-btn" onclick="toggleBroadcast()" class="px-2 py-1 bg-white/5 hover:bg-red-500 rounded-full text-[7px] font-black uppercase transition-all flex items-center gap-1 border border-white/10">
+                        <span id="broadcast-dot" class="w-1.5 h-1.5 bg-slate-500 rounded-full"></span>
+                        LIVE
+                    </button>
                     <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                    <span class="text-[8px] font-bold text-emerald-400 uppercase tracking-tighter">Secure Link</span>
                 </div>
             </div>
+            <div id="video-grid" class="flex gap-2 p-2 empty:hidden bg-indigo-600/10 border-b border-indigo-500/20 overflow-x-auto min-h-0">
+                <!-- Remote videos -->
+            </div>
+
             <div id="messages-container" class="flex-grow overflow-y-auto p-6 space-y-4 custom-scroll h-64">
                 <!-- Messages dynamic -->
                 <p class="text-[9px] text-slate-500 text-center uppercase tracking-widest py-10">Starting Secure Channel...</p>
@@ -696,13 +705,14 @@ require_once 'includes/header.php';
         }
     }
 
-    async function sendMessage(e) {
-        e.preventDefault();
+    async function sendMessage(e, directMsg = null) {
+        if (e) e.preventDefault();
         const input = document.getElementById('chat-input');
-        const msg = input.value.trim();
+        const msg = directMsg || input.value.trim();
         if (!msg) return;
 
-        input.value = '';
+        if (!directMsg) input.value = '';
+
         try {
             await fetch('api/chat.php', {
                 method: 'POST',
@@ -746,7 +756,92 @@ require_once 'includes/header.php';
 
     function handleError(error) { console.error(error); }
 
+    // --- TACTICAL LIVE VIDEO (PEERJS) ---
+    let peer = null;
+    let localStream = null;
+    let broadcasting = false;
+    let peerConnections = {};
+
+    function initVideo() {
+        const peerId = `rt_${rideId}_u${userId}`;
+        peer = new Peer(peerId);
+        
+        peer.on('call', (call) => {
+            console.log("Incoming tactical feed...");
+            call.answer(null); 
+            call.on('stream', (remoteStream) => {
+                showRemoteVideo(call.peer, remoteStream);
+            });
+        });
+    }
+
+    async function toggleBroadcast() {
+        const btn = document.getElementById('broadcast-btn');
+        const dot = document.getElementById('broadcast-dot');
+        
+        if (!broadcasting) {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                broadcasting = true;
+                btn.classList.add('bg-red-500', 'text-white');
+                btn.innerHTML = `HIDE LIVE`;
+                dot.classList.remove('bg-slate-500');
+                dot.classList.add('bg-white', 'animate-ping');
+                
+                showRemoteVideo('me', localStream, true);
+                
+                sendMessage({ preventDefault: () => {} }, "📡 **TACTICAL FEED ACTIVE**");
+
+            } catch (err) {
+                alert("Camera access denied.");
+            }
+        } else {
+            stopBroadcast();
+        }
+    }
+
+    function stopBroadcast() {
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+            localStream = null;
+        }
+        broadcasting = false;
+        const btn = document.getElementById('broadcast-btn');
+        btn.classList.remove('bg-red-500', 'text-white');
+        btn.innerHTML = `<span id="broadcast-dot" class="w-1.5 h-1.5 bg-slate-500 rounded-full"></span> LIVE`;
+        const myVid = document.getElementById('vid-me');
+        if (myVid) myVid.remove();
+    }
+
+    function showRemoteVideo(id, stream, isMe = false) {
+        let videoId = `vid-${id}`;
+        if (document.getElementById(videoId)) return;
+        
+        const grid = document.getElementById('video-grid');
+        const container = document.createElement('div');
+        container.id = videoId;
+        container.className = "flex-shrink-0 relative w-24 h-32 bg-slate-800 rounded-xl overflow-hidden shadow-xl border border-white/10";
+        
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.autoplay = true;
+        video.playsInline = true;
+        video.muted = isMe;
+        video.className = "w-full h-full object-cover";
+        
+        const label = document.createElement('span');
+        label.className = "absolute bottom-1 left-1 px-1 bg-black/50 text-[6px] text-white font-bold rounded uppercase";
+        label.innerText = isMe ? "ME" : "CREW";
+        
+        container.appendChild(video);
+        container.appendChild(label);
+        grid.prepend(container);
+    }
+
+    initVideo();
+
     window.onload = initMap;
+
 </script>
 
 <style>
