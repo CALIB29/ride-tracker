@@ -431,23 +431,24 @@ require_once 'includes/header.php';
             const emojiMap = { bicycle: '🚲', motorcycle: '🏍️', car: '🚗' };
             const currentEmoji = emojiMap[loc.vehicle_type] || '🏍️';
             const isOnline = loc.is_online == 1;
+            const isMe = loc.user_id == userId;
             
-            const riderRow = `<div onclick="map.flyTo([${loc.lat || 0}, ${loc.lng || 0}], 16)" class="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/5 cursor-pointer hover:bg-white/10 transition-colors group ${!isOnline ? 'opacity-60' : ''}">
-                <div class="relative">
-                    <div class="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-lg border border-indigo-500/20 group-hover:scale-110 transition-transform">
-                        ${currentEmoji}
+            const riderRow = `
+            <div class="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/5 group ${!isOnline ? 'opacity-60' : ''}">
+                <div onclick="map.flyTo([${loc.lat || 0}, ${loc.lng || 0}], 16)" class="flex items-center gap-3 flex-grow cursor-pointer">
+                    <div class="relative">
+                        <div class="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-lg border border-indigo-500/20 group-hover:scale-110 transition-transform">
+                            ${currentEmoji}
+                        </div>
+                        ${isOnline ? '<div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-slate-900 animate-pulse"></div>' : '<div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-slate-500 rounded-full border-2 border-slate-900"></div>'}
                     </div>
-                    ${isOnline ? '<div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-slate-900 animate-pulse"></div>' : '<div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-slate-500 rounded-full border-2 border-slate-900"></div>'}
+                    <div>
+                    <p class="text-[10px] font-bold text-white uppercase tracking-wider">${loc.username}</p>
+                    <p class="text-[8px] text-slate-500 uppercase tracking-widest">${isOnline ? (loc.vehicle_type || 'Active') : 'Offline'}</p>
+                    </div>
                 </div>
-                <div class="flex-grow">
-                   <p class="text-sm font-bold text-white">${loc.username}</p>
-                   <p class="text-[9px] text-slate-500 uppercase tracking-widest">${isOnline ? (loc.vehicle_type || 'Active') : 'Offline'}</p>
-                </div>
-                <div class="text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
+                <div class="flex items-center gap-2">
+                    ${isOnline && !isMe ? `<button onclick="watchRider(${loc.user_id})" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[8px] font-black rounded-xl uppercase tracking-widest transition-all shadow-lg shadow-indigo-500/20">Watch</button>` : ''}
                 </div>
             </div>`;
             listEl.innerHTML += riderRow;
@@ -780,6 +781,28 @@ require_once 'includes/header.php';
                 showRemoteVideo(call.peer, remoteStream);
             });
         });
+    }
+
+    function watchRider(targetUserId) {
+        const targetPeerId = `rt_${rideId}_u${targetUserId}`;
+        if (peerConnections[targetPeerId]) return;
+        
+        console.log("Connecting to Tactical Feed:", targetPeerId);
+        
+        // Use an empty stream to initiate the call if we aren't broadcasting
+        const call = peer.call(targetPeerId, localStream || new MediaStream());
+        
+        call.on('stream', (remoteStream) => {
+            console.log("Stream received from:", targetPeerId);
+            showRemoteVideo(targetPeerId, remoteStream);
+        });
+
+        call.on('error', (err) => {
+            console.warn("Feed connection failed:", err);
+            delete peerConnections[targetPeerId];
+        });
+
+        peerConnections[targetPeerId] = call;
     }
 
     async function toggleBroadcast() {
