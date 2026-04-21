@@ -297,6 +297,15 @@ require_once 'includes/header.php';
             });
         }
         
+        // Aggressive first sync
+        let firstSync = setInterval(() => {
+            if (document.getElementById('participant-count').innerText == "0") {
+                syncTacticalData();
+            } else {
+                clearInterval(firstSync);
+            }
+        }, 3000);
+
         setInterval(() => {
             if (!window.dbBackoff) syncTacticalData();
         }, 12000);
@@ -501,7 +510,6 @@ require_once 'includes/header.php';
             .catch(err => {
                 const statusDot = document.getElementById('sync-status');
                 if (statusDot) statusDot.className = "w-2 h-2 bg-amber-500 rounded-full animate-ping shadow-[0_0_8px_#f59e0b]";
-                console.warn("Sync skipped: DB Busy");
                 window.syncing = false;
             });
     }
