@@ -250,7 +250,8 @@ require_once 'includes/header.php';
             });
         }
         
-        setInterval(fetchRidersLocations, 3000);
+        setInterval(fetchRidersLocations, 6000);
+        setInterval(updateLocation, 10000);
     }
 
     function updateUserLocation(position) {
@@ -760,7 +761,8 @@ require_once 'includes/header.php';
         container.scrollTop = container.scrollHeight;
     }
 
-    setInterval(pollMessages, 3000);
+    setInterval(pollMessages, 8000);
+
 
     function handleError(error) { console.error(error); }
 
