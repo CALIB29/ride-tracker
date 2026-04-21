@@ -206,6 +206,32 @@ require_once 'includes/header.php';
     const userId = <?php echo $user_id; ?>;
     const destLat = <?php echo $ride['dest_lat']; ?>;
     const destLng = <?php echo $ride['dest_lng']; ?>;
+
+    // --- INITIALISE TACTICAL VIDEO IMMEDIATELY ---
+    let peer = null;
+    let localStream = null;
+    let broadcasting = false;
+    let peerConnections = {};
+
+    function initVideo() {
+        const peerId = `rt_${rideId}_u${userId}`;
+        console.log("My Tactical ID:", peerId);
+        peer = new Peer(peerId);
+        
+        peer.on('call', (call) => {
+            console.log("Incoming tactical feed from:", call.peer);
+            call.answer(null); 
+            call.on('stream', (remoteStream) => {
+                showRemoteVideo(call.peer, remoteStream);
+            });
+        });
+
+        // Error handling for PeerJS
+        peer.on('error', (err) => {
+            console.error("PeerJS Error:", err.type);
+        });
+    }
+    initVideo();
     
     let map, userMarker, markers = {}, pathlines = {}, routingControl;
     let lastPosition = null;
@@ -251,8 +277,8 @@ require_once 'includes/header.php';
         }
         
         setInterval(fetchRidersLocations, 6000);
-        setInterval(updateLocation, 10000);
     }
+
 
     function updateUserLocation(position) {
         const lat = position.coords.latitude;
@@ -766,24 +792,7 @@ require_once 'includes/header.php';
 
     function handleError(error) { console.error(error); }
 
-    // --- TACTICAL LIVE VIDEO (PEERJS) ---
-    let peer = null;
-    let localStream = null;
-    let broadcasting = false;
-    let peerConnections = {};
-
-    function initVideo() {
-        const peerId = `rt_${rideId}_u${userId}`;
-        peer = new Peer(peerId);
-        
-        peer.on('call', (call) => {
-            console.log("Incoming tactical feed...");
-            call.answer(null); 
-            call.on('stream', (remoteStream) => {
-                showRemoteVideo(call.peer, remoteStream);
-            });
-        });
-    }
+    // Video init moved to top of script
 
     function watchRider(targetUserId) {
         if (!peer) {
@@ -883,7 +892,8 @@ require_once 'includes/header.php';
         grid.prepend(container);
     }
 
-    initVideo();
+    // initVideo(); // Moved to top
+
 
     window.onload = initMap;
 
