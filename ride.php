@@ -22,7 +22,11 @@ if (!$ride) {
     exit;
 }
 
-// Mark ride as active if creator starts it (for demo, any access by creator sets it active)
+// FORCE JOIN: Ensure user is a participant
+$stmt = $pdo->prepare("INSERT IGNORE INTO ride_participants (ride_id, user_id) VALUES (?, ?)");
+$stmt->execute([$ride_id, $user_id]);
+
+// Mark ride as active if creator starts it
 if ($ride['creator_id'] == $user_id && $ride['status'] == 'planned') {
     $pdo->prepare("UPDATE rides SET status = 'active' WHERE id = ?")->execute([$ride_id]);
 }
@@ -124,6 +128,11 @@ require_once 'includes/header.php';
             </div>
             <div id="riders-list" class="space-y-4 max-h-48 overflow-y-auto pr-2 custom-scroll bg-white/5 rounded-3xl p-4 border border-white/5">
                 <!-- Dynamic List -->
+            </div>
+
+            <div class="mt-4 pt-4 border-t border-white/5 flex items-center justify-between opacity-50">
+                <span class="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Operator:</span>
+                <span class="text-[8px] text-indigo-400 font-black uppercase tracking-widest"><?php echo $_SESSION['username']; ?> (ID: <?php echo $_SESSION['user_id']; ?>)</span>
             </div>
 
             <div class="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
@@ -491,6 +500,8 @@ require_once 'includes/header.php';
     function syncTacticalData() {
         if (window.syncing) return;
         window.syncing = true;
+        
+        console.log(`📡 Syncing tactical net for Ride #${rideId}...`);
         
         // 1. Update MY location
         if (lastPosition) {
