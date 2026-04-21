@@ -47,4 +47,5 @@ if (isset($_GET['ride_id']) && isset($_SESSION['user_id'])) {
     exit;
 }
 
+$pdo = null;
 echo json_encode(['status' => 'error']);

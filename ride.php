@@ -216,26 +216,29 @@ require_once 'includes/header.php';
     function initVideo() {
         const peerId = `rt_${rideId}_u${userId}`;
         console.log("My Tactical ID:", peerId);
-        peer = new Peer(peerId);
+        
+        // Using Google's STUN servers for better mobile connectivity
+        peer = new Peer(peerId, {
+            config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }, { 'urls': 'stun:stun1.l.google.com:19302' }] }
+        });
         
         peer.on('call', (call) => {
             console.log("Incoming tactical request from:", call.peer);
-            
-            // If I am broadcasting, I must answer with my stream so they can see me
-            // If I am NOT broadcasting, I just answer with null (I am just watching them)
             call.answer(localStream); 
             
             call.on('stream', (remoteStream) => {
-                console.log("Receiving feed from:", call.peer);
                 showRemoteVideo(call.peer, remoteStream);
             });
         });
 
-        // Error handling for PeerJS
         peer.on('error', (err) => {
             console.error("PeerJS Error:", err.type);
+            if (err.type === 'peer-unavailable') {
+               console.warn("Target rider is not online or ID is wrong.");
+            }
         });
     }
+
     initVideo();
     
     let map, userMarker, markers = {}, pathlines = {}, routingControl;
@@ -445,12 +448,20 @@ require_once 'includes/header.php';
 
     function fetchRidersLocations() {
         fetch(`api/get_riders_locations.php?ride_id=${rideId}`)
-            .then(res => res.json())
+            .then(res => {
+                const contentType = res.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    return res.json();
+                } else {
+                    throw new Error("Server status: busy");
+                }
+            })
             .then(data => {
                 if (data.status === 'success') {
                     updateRidersOnMap(data.locations || [], data.pathways || {});
                 }
-            });
+            })
+            .catch(err => console.warn("Polling suspended: Server busy."));
     }
 
     function updateRidersOnMap(riders, pathways) {
@@ -465,6 +476,9 @@ require_once 'includes/header.php';
             const isOnline = loc.is_online == 1;
             const isMe = loc.user_id == userId;
             
+            // Check if this rider recently said they are live in chat
+            const isLive = window.liveRiders && window.liveRiders.has(parseInt(loc.user_id));
+            
             const riderRow = `
             <div class="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/5 group ${!isOnline ? 'opacity-60' : ''}">
                 <div onclick="map.flyTo([${loc.lat || 0}, ${loc.lng || 0}], 16)" class="flex items-center gap-3 flex-grow cursor-pointer">
@@ -472,15 +486,15 @@ require_once 'includes/header.php';
                         <div class="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-lg border border-indigo-500/20 group-hover:scale-110 transition-transform">
                             ${currentEmoji}
                         </div>
-                        ${isOnline ? '<div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-slate-900 animate-pulse"></div>' : '<div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-slate-500 rounded-full border-2 border-slate-900"></div>'}
+                        ${isOnline ? `<div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 ${isLive ? 'bg-red-500 animate-ping' : 'bg-emerald-500'} rounded-full border-2 border-slate-900"></div>` : '<div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-slate-500 rounded-full border-2 border-slate-900"></div>'}
                     </div>
                     <div>
-                    <p class="text-[10px] font-bold text-white uppercase tracking-wider">${loc.username}</p>
+                    <p class="text-[10px] font-bold text-white uppercase tracking-wider">${loc.username} ${isLive ? '<span class="text-[8px] text-red-500 font-black animate-pulse">● LIVE</span>' : ''}</p>
                     <p class="text-[8px] text-slate-500 uppercase tracking-widest">${isOnline ? (loc.vehicle_type || 'Active') : 'Offline'}</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    ${isOnline && !isMe ? `<button onclick="watchRider(${loc.user_id})" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[8px] font-black rounded-xl uppercase tracking-widest transition-all shadow-lg shadow-indigo-500/20">Watch</button>` : ''}
+                    ${isOnline && !isMe ? `<button onclick="watchRider(${loc.user_id})" class="px-3 py-1.5 ${isLive ? 'bg-red-600' : 'bg-indigo-600'} hover:opacity-80 text-white text-[8px] font-black rounded-xl uppercase tracking-widest transition-all shadow-lg shadow-indigo-500/20">${isLive ? 'Watch Live' : 'Watch'}</button>` : ''}
                 </div>
             </div>`;
             listEl.innerHTML += riderRow;
@@ -696,7 +710,9 @@ require_once 'includes/header.php';
                     // AUTO-WATCH: If someone goes live, try to watch them
                     if (!isMe && m.message.includes("TACTICAL FEED ACTIVE")) {
                         console.log("Rider went live. Connecting to tactical feed...");
-                        setTimeout(() => { watchRider(m.user_id); }, 1000); // Small delay to let PeerJS init on their end
+                        if (!window.liveRiders) window.liveRiders = new Set();
+                        window.liveRiders.add(parseInt(m.user_id));
+                        setTimeout(() => { watchRider(m.user_id); }, 1500); 
                     }
                     
                     const div = document.createElement('div');

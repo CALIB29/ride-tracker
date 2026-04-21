@@ -34,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         echo json_encode(['status' => 'error', 'message' => 'Invalid parameters']);
     }
+    $pdo = null; // Free up slot
     exit;
 } else {
     $ride_id = isset($_GET['ride_id']) ? (int)$_GET['ride_id'] : 0;
@@ -51,6 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Exception $e) {
         echo json_encode([]);
     }
+    $pdo = null;
     exit;
 }
 

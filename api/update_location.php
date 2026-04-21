@@ -37,5 +37,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SESSION['user_id'])) {
     }
 }
 
+$pdo = null;
 echo json_encode(['status' => 'error']);
 ?>
