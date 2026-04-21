@@ -809,22 +809,36 @@ require_once 'includes/header.php';
         
         console.log("Connecting to Tactical Feed:", targetPeerId);
         
+        // Find the button to update its text
+        const btn = event.target.closest('button');
+        const originalText = btn ? btn.innerText : 'Watch';
+        if (btn) btn.innerText = "Connecting...";
+
         try {
-            // Use an empty stream to initiate the call if we aren't broadcasting
+            // Use an empty stream to initiate the call
             const call = peer.call(targetPeerId, localStream || new MediaStream());
             
-            if (!call) {
-                console.error("Could not initiate call to:", targetPeerId);
-                return;
-            }
+            // Set a timeout to prevent getting stuck
+            const watchTimeout = setTimeout(() => {
+                if (!document.getElementById(`vid-${targetPeerId}`)) {
+                    alert("Tactical feed timed out. Rider might not be live or signal is low.");
+                    if (btn) btn.innerText = originalText;
+                    call.close();
+                    delete peerConnections[targetPeerId];
+                }
+            }, 5000);
 
             call.on('stream', (remoteStream) => {
+                clearTimeout(watchTimeout);
                 console.log("Stream received from:", targetPeerId);
                 showRemoteVideo(targetPeerId, remoteStream);
+                if (btn) btn.innerText = "Watching";
             });
 
             call.on('error', (err) => {
+                clearTimeout(watchTimeout);
                 console.warn("Feed connection failed:", err);
+                if (btn) btn.innerText = originalText;
                 delete peerConnections[targetPeerId];
             });
 
